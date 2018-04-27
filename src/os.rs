@@ -18,15 +18,15 @@ use winapi::um::synchapi::{AcquireSRWLockExclusive, DeleteCriticalSection, Enter
 use libc;
 
 mod raw {
-#[cfg(windows)]
-pub use winapi::um::minwinbase::CRITICAL_SECTION;
-#[cfg(windows)]
-pub use winapi::um::synchapi::SRWLOCK;
-#[cfg(unix)]
-pub use libc::pthread_mutex_t;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-#[repr(C)]
-pub struct OSSpinLock(pub i32);
+    #[cfg(unix)]
+    pub use libc::pthread_mutex_t;
+    #[cfg(windows)]
+    pub use winapi::um::minwinbase::CRITICAL_SECTION;
+    #[cfg(windows)]
+    pub use winapi::um::synchapi::SRWLOCK;
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[repr(C)]
+    pub struct OSSpinLock(pub i32);
 }
 
 use RawMutex;
@@ -234,9 +234,7 @@ impl UnsafeRawOsMutex for raw::CRITICAL_SECTION {
 impl Default for CRITICAL_SECTION {
     #[inline]
     fn default() -> Self {
-        unsafe {
-            mem::uninitialized()
-        }
+        unsafe { mem::uninitialized() }
     }
 }
 

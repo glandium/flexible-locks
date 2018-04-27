@@ -25,7 +25,6 @@
 //! The `parking_lot` feature can be enabled, providing a [`RawMutex`]
 //! implementation for `parking_log::Mutex<()>`.
 #![no_std]
-
 #![deny(missing_docs)]
 
 #[cfg(any(feature = "std", test))]
