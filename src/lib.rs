@@ -260,10 +260,12 @@ impl<M: RawMutex + Default, T> From<T> for MutexWrapper<M, T> {
 ///
 /// - No poisoning.
 /// - No `try_lock`.
-/// - The raw mutex can be of any kind, within a `Box` or not, as long as the
-///   [`RawMutex`] trait is implemented. Choose carefully.
-/// - The raw mutex can be embedded in the data type. See the [`MutexWrap`]
-///   type for a variant that looks more like [`std::sync::Mutex`].
+/// - The underlying raw mutex primitive can be of any kind, within a `Box` or
+///   not, as long as the [`RawMutex`] trait is implemented. Choose carefully.
+/// - The raw mutex primitive can be embedded anywhere in the data type. See
+///   the [`MutexWrap`] type for a variant that looks more like
+///   [`std::sync::Mutex`] but still allows to use a specific raw mutex
+///   primitive.
 ///
 /// [`std::sync::Mutex`]: https://doc.rust-lang.org/std/sync/struct.Mutex.html
 /// [`RawMutex`]: trait.RawMutex.html
@@ -640,11 +642,8 @@ impl<T: MutexProtected + ?Sized> Drop for Mutex<T> {
 ///
 /// - No poisoning.
 /// - No `try_lock`.
-/// - The raw mutex can be of any kind, within a `Box` or not, as long as the
-///   [`RawMutex`] trait is implemented. Choose carefully.
-///
-/// [`std::sync::Mutex`]: https://doc.rust-lang.org/std/sync/struct.Mutex.html
-/// [`RawMutex`]: trait.RawMutex.html
+/// - The underlying raw mutex primitive can be of any kind, within a `Box` or
+///   not, as long as the [`RawMutex`] trait is implemented. Choose carefully.
 ///
 /// # Examples
 ///

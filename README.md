@@ -10,6 +10,16 @@ necessary with panic=abort.
 
 The provided types allow flexibility in layout and locking implementation.
 
+## Differences from `std::sync::Mutex`
+
+- No poisoning.
+- No `try_lock`.
+- The underlying raw mutex primitive can be of any kind, within a `Box` or
+  not, as long as the `RawMutex` trait is implemented. Choose carefully.
+- The raw mutex primitive can be embedded anywhere in the data type. See the
+  `MutexWrap` type for a variant that looks more like `std::sync::Mutex`,
+  but still allows to use a specific raw mutex primitive.
+
 ## Examples
 
 ```rust
@@ -68,7 +78,7 @@ fn main() {
 
 ## Features
 
-The `parking_lot` feature can be enabled, providing a [`RawMutex`]
+The `parking_lot` feature can be enabled, providing a `RawMutex`
 implementation for `parking_log::Mutex<()>`.
 
 License: Apache-2.0/MIT
