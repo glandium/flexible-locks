@@ -25,10 +25,37 @@ pub use winapi::um::synchapi::SRWLOCK;
 #[cfg(unix)]
 pub use libc::pthread_mutex_t;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub type OSSpinLock = i32;
+#[repr(C)]
+pub struct OSSpinLock(pub i32);
 }
 
 use RawMutex;
+
+/// A trait for unsafe raw mutual exclusion primitives.
+///
+/// Types implementing this trait are meant to be wrapped with [`RawOsMutex`],
+/// bringing them an automatic [`RawMutex`] implementation.
+pub trait UnsafeRawOsMutex {
+    /// Initialize the raw mutex.
+    ///
+    /// See [`RawMutex::init`].
+    unsafe fn init(_mutex: *mut Self) {}
+
+    /// Destroy the raw mutex.
+    ///
+    /// See [`RawMutex::destroy`]
+    unsafe fn destroy(_mutex: *mut Self) {}
+
+    /// Acquire the raw mutex.
+    ///
+    /// See [`RawMutex::lock`]
+    unsafe fn lock(mutex: *mut Self);
+
+    /// Release the raw mutex.
+    ///
+    /// See [`RawMutex::unlock`]
+    unsafe fn unlock(mutex: *mut Self);
+}
 
 /// Platform mutex primitives for use with [`Mutex`] and [`MutexWrap`].
 ///
@@ -66,23 +93,62 @@ use RawMutex;
 /// [`srwlock_new`]: ../x86_64-pc-windows-msvc/flexible_locks/macro.srwlock_new.html
 ///
 /// For more specific non default use cases, you may want to implement your own
-/// type and implement the [`RawMutex`] trait for it.
+/// type and implement the [`RawMutex`] or [`UnsafeRawOsMutex`] trait for it.
 ///
 /// ## Safety
 ///
 /// Generally speaking, platform mutex primitives cannot be moved in memory.
 /// That is, they must stay at the same address. Please ensure that is the
 /// case when you use them.
-pub struct RawOsMutex<T> {
+pub struct RawOsMutex<T: UnsafeRawOsMutex> {
     #[doc(hidden)]
     pub __inner: UnsafeCell<T>,
 }
 
-unsafe impl<T> Send for RawOsMutex<T> {}
-unsafe impl<T> Sync for RawOsMutex<T> {}
+unsafe impl<T: UnsafeRawOsMutex> Send for RawOsMutex<T> {}
+unsafe impl<T: UnsafeRawOsMutex> Sync for RawOsMutex<T> {}
 
-/// Initializes a `RawOsMutex`
-#[doc(hidden)]
+impl<T: UnsafeRawOsMutex> RawMutex for RawOsMutex<T> {
+    unsafe fn init(&mut self) {
+        T::init(self.__inner.get());
+    }
+
+    unsafe fn lock(&self) {
+        T::lock(self.__inner.get());
+    }
+
+    unsafe fn unlock(&self) {
+        T::unlock(self.__inner.get());
+    }
+
+    unsafe fn destroy(&self) {
+        T::destroy(self.__inner.get());
+    }
+}
+
+/// Statically initializes a [`RawOsMutex`]
+///
+/// # Examples
+///
+/// ```
+/// #[macro_use]
+/// extern crate flexible_locks;
+/// use flexible_locks::{RawOsMutex, UnsafeRawOsMutex};
+///
+/// struct FakeRawMutex;
+///
+/// impl UnsafeRawOsMutex for FakeRawMutex {
+///     unsafe fn lock(mutex: *mut Self) {
+///         // Real implementation goes here.
+///     }
+///     unsafe fn unlock(mutex: *mut Self) {
+///         // Real implementation goes here.
+///     }
+/// }
+///
+/// static MUTEX: RawOsMutex<FakeRawMutex> = raw_os_mutex_new!(FakeRawMutex);
+/// # fn main() {}
+/// ```
 #[macro_export]
 macro_rules! raw_os_mutex_new {
     ($e:expr) => {
@@ -97,22 +163,16 @@ macro_rules! raw_os_mutex_new {
 pub type SRWLOCK = RawOsMutex<raw::SRWLOCK>;
 
 #[cfg(windows)]
-impl RawMutex for SRWLOCK {
+impl UnsafeRawOsMutex for raw::SRWLOCK {
     #[inline]
-    unsafe fn init(&mut self) {}
-
-    #[inline]
-    unsafe fn lock(&self) {
-        AcquireSRWLockExclusive(self.__inner.get())
+    unsafe fn lock(mutex: *mut Self) {
+        AcquireSRWLockExclusive(mutex);
     }
 
     #[inline]
-    unsafe fn unlock(&self) {
-        ReleaseSRWLockExclusive(self.__inner.get())
+    unsafe fn unlock(mutex: *mut Self) {
+        ReleaseSRWLockExclusive(mutex);
     }
-
-    #[inline]
-    unsafe fn destroy(&self) {}
 }
 
 /// Statically initializes a [`SRWLOCK`]
@@ -148,25 +208,25 @@ impl Default for SRWLOCK {
 pub type CRITICAL_SECTION = RawOsMutex<raw::CRITICAL_SECTION>;
 
 #[cfg(windows)]
-impl RawMutex for CRITICAL_SECTION {
+impl UnsafeRawOsMutex for raw::CRITICAL_SECTION {
     #[inline]
-    unsafe fn init(&mut self) {
-        InitializeCriticalSection(self.__inner.get())
+    unsafe fn init(mutex: *mut Self) {
+        InitializeCriticalSection(mutex);
     }
 
     #[inline]
-    unsafe fn lock(&self) {
-        EnterCriticalSection(self.__inner.get())
+    unsafe fn lock(mutex: *mut Self) {
+        EnterCriticalSection(mutex);
     }
 
     #[inline]
-    unsafe fn unlock(&self) {
-        LeaveCriticalSection(self.__inner.get())
+    unsafe fn unlock(mutex: *mut Self) {
+        LeaveCriticalSection(mutex);
     }
 
     #[inline]
-    unsafe fn destroy(&self) {
-        DeleteCriticalSection(self.__inner.get())
+    unsafe fn destroy(mutex: *mut Self) {
+        DeleteCriticalSection(mutex);
     }
 }
 
@@ -190,32 +250,32 @@ pub use libc::PTHREAD_MUTEX_INITIALIZER;
 pub type pthread_mutex_t = RawOsMutex<raw::pthread_mutex_t>;
 
 #[cfg(unix)]
-impl RawMutex for pthread_mutex_t {
-    unsafe fn init(&mut self) {
+impl UnsafeRawOsMutex for raw::pthread_mutex_t {
+    unsafe fn init(mutex: *mut Self) {
         let mut attr: libc::pthread_mutexattr_t = mem::uninitialized();
         let r = libc::pthread_mutexattr_init(&mut attr);
         debug_assert_eq!(r, 0);
         let r = libc::pthread_mutexattr_settype(&mut attr, libc::PTHREAD_MUTEX_NORMAL);
         debug_assert_eq!(r, 0);
-        let r = libc::pthread_mutex_init(self.__inner.get(), &attr);
+        let r = libc::pthread_mutex_init(mutex, &attr);
         debug_assert_eq!(r, 0);
         let r = libc::pthread_mutexattr_destroy(&mut attr);
         debug_assert_eq!(r, 0);
     }
 
     #[inline]
-    unsafe fn lock(&self) {
-        libc::pthread_mutex_lock(self.__inner.get());
+    unsafe fn lock(mutex: *mut Self) {
+        libc::pthread_mutex_lock(mutex);
     }
 
     #[inline]
-    unsafe fn unlock(&self) {
-        libc::pthread_mutex_unlock(self.__inner.get());
+    unsafe fn unlock(mutex: *mut Self) {
+        libc::pthread_mutex_unlock(mutex);
     }
 
     #[inline]
-    unsafe fn destroy(&self) {
-        libc::pthread_mutex_destroy(self.__inner.get());
+    unsafe fn destroy(mutex: *mut Self) {
+        libc::pthread_mutex_destroy(mutex);
     }
 }
 
@@ -251,7 +311,7 @@ impl Default for pthread_mutex_t {
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 #[doc(hidden)]
-pub const OS_SPINLOCK_INIT: raw::OSSpinLock = 0;
+pub const OS_SPINLOCK_INIT: raw::OSSpinLock = raw::OSSpinLock(0);
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "System")]
@@ -265,22 +325,16 @@ extern "C" {
 pub type OSSpinLock = RawOsMutex<raw::OSSpinLock>;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-impl RawMutex for OSSpinLock {
+impl UnsafeRawOsMutex for raw::OSSpinLock {
     #[inline]
-    unsafe fn init(&mut self) {}
-
-    #[inline]
-    unsafe fn lock(&self) {
-        OSSpinLockLock(self.__inner.get())
+    unsafe fn lock(mutex: *mut Self) {
+        OSSpinLockLock(mutex);
     }
 
     #[inline]
-    unsafe fn unlock(&self) {
-        OSSpinLockUnLock(self.__inner.get())
+    unsafe fn unlock(mutex: *mut Self) {
+        OSSpinLockUnLock(mutex);
     }
-
-    #[inline]
-    unsafe fn destroy(&self) {}
 }
 
 /// Statically initializes a [`OSSpinLock`]
