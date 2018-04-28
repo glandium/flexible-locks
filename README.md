@@ -19,6 +19,8 @@ The provided types allow flexibility in layout and locking implementation.
 - The raw mutex primitive can be embedded anywhere in the data type. See the
   `MutexWrap` type for a variant that looks more like `std::sync::Mutex`,
   but still allows to use a specific raw mutex primitive.
+- With care, this can allow to share data through FFI and contend on the same
+  locks. See the `ffi-example` directory.
 
 ## Examples
 

@@ -1,0 +1,12 @@
+[package]
+name = "flexible-locks-ffi-example"
+version = "0.1.0"
+authors = ["Mike Hommey <mh@glandium.org>"]
+
+[dependencies]
+crossbeam = "0.3"
+flexible-locks = { path = ".." }
+flexible-locks_derive = { path = "../flexible-locks_derive" }
+
+[build-dependencies]
+cc = "1.0"

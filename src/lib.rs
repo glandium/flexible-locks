@@ -265,6 +265,8 @@ impl<M: RawMutex + Default, T> From<T> for MutexWrapper<M, T> {
 ///   the [`MutexWrap`] type for a variant that looks more like
 ///   [`std::sync::Mutex`] but still allows to use a specific raw mutex
 ///   primitive.
+/// - With care, this can allow to share data through FFI and contend on the
+///   same locks. See the `ffi-example` directory.
 ///
 /// [`std::sync::Mutex`]: https://doc.rust-lang.org/std/sync/struct.Mutex.html
 /// [`RawMutex`]: trait.RawMutex.html
@@ -643,6 +645,8 @@ impl<T: MutexProtected + ?Sized> Drop for Mutex<T> {
 /// - No `try_lock`.
 /// - The underlying raw mutex primitive can be of any kind, within a `Box` or
 ///   not, as long as the [`RawMutex`] trait is implemented. Choose carefully.
+/// - With care, this can allow to share data through FFI and contend on the
+///   same locks. See the `ffi-example` directory.
 ///
 /// # Examples
 ///
