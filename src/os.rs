@@ -12,7 +12,7 @@ use core::mem;
 #[cfg(windows)]
 use winapi::um::synchapi::{AcquireSRWLockExclusive, DeleteCriticalSection, EnterCriticalSection,
                            InitializeCriticalSection, LeaveCriticalSection,
-                           ReleaseSRWLockExclusive, SRWLOCK_INIT};
+                           ReleaseSRWLockExclusive};
 
 #[cfg(unix)]
 use libc;
@@ -175,6 +175,10 @@ impl UnsafeRawOsMutex for raw::SRWLOCK {
     }
 }
 
+#[cfg(windows)]
+#[doc(hidden)]
+pub use winapi::um::synchapi::SRWLOCK_INIT;
+
 /// Statically initializes a [`SRWLOCK`]
 ///
 /// # Examples
@@ -190,7 +194,7 @@ impl UnsafeRawOsMutex for raw::SRWLOCK {
 #[macro_export]
 macro_rules! srwlock_new {
     () => {
-        raw_os_mutex_new!(SRWLOCK_INIT)
+        raw_os_mutex_new!($crate::SRWLOCK_INIT)
     };
 }
 
