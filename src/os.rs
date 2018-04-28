@@ -315,7 +315,7 @@ pub const OS_SPINLOCK_INIT: raw::OSSpinLock = raw::OSSpinLock(0);
 #[link(name = "System")]
 extern "C" {
     fn OSSpinLockLock(lock: *mut raw::OSSpinLock);
-    fn OSSpinLockUnLock(lock: *mut raw::OSSpinLock);
+    fn OSSpinLockUnlock(lock: *mut raw::OSSpinLock);
 }
 
 /// [`RawOsMutex`] wrapper for `OSSpinLock`.
@@ -331,7 +331,7 @@ impl UnsafeRawOsMutex for raw::OSSpinLock {
 
     #[inline]
     unsafe fn unlock(mutex: *mut Self) {
-        OSSpinLockUnLock(mutex);
+        OSSpinLockUnlock(mutex);
     }
 }
 
