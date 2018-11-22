@@ -25,7 +25,7 @@ mod raw {
     #[cfg(windows)]
     pub use winapi::um::synchapi::SRWLOCK;
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    #[repr(C)]
+    #[repr(transparent)]
     pub struct OSSpinLock(pub i32);
 }
 
@@ -100,6 +100,7 @@ pub trait UnsafeRawOsMutex {
 /// Generally speaking, platform mutex primitives cannot be moved in memory.
 /// That is, they must stay at the same address. Please ensure that is the
 /// case when you use them.
+#[repr(transparent)]
 pub struct RawOsMutex<T: UnsafeRawOsMutex> {
     #[doc(hidden)]
     pub __inner: UnsafeCell<T>,

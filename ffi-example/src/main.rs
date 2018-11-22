@@ -34,9 +34,6 @@ struct Data {
     m: RawOsMutex,
 }
 
-// RawOsMutex is not #[repr(C)] because UnsafeCell is not, but practically,
-// it should work fine.
-#[allow(improper_ctypes)]
 #[link(name = "ffi", kind = "static")]
 extern "C" {
     fn data_new() -> *mut Data;

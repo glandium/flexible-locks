@@ -332,6 +332,7 @@ impl<M: RawMutex + Default, T> From<T> for MutexWrapper<M, T> {
 /// by [`Mutex::lock`] is the non-mutex field, rather than the whole data.
 /// In that case, it is preferable to use [`MutexWrap`] instead.
 /// See [`MutexProtected::DataType`].
+#[repr(transparent)]
 pub struct Mutex<T: MutexProtected + ?Sized> {
     #[doc(hidden)]
     pub __wrapper: UnsafeCell<T>,
