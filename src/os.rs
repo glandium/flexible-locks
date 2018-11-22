@@ -20,6 +20,10 @@ use libc;
 mod raw {
     #[cfg(unix)]
     pub use libc::pthread_mutex_t;
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[allow(non_camel_case_types)]
+    #[repr(transparent)]
+    pub struct pthread_mutex_adaptive_t(pub libc::pthread_mutex_t);
     #[cfg(windows)]
     pub use winapi::um::minwinbase::CRITICAL_SECTION;
     #[cfg(windows)]
@@ -67,6 +71,8 @@ pub trait UnsafeRawOsMutex {
 ///
 /// The available primitives are:
 /// - [`pthread_mutex_t`], on Unix-like systems, including macOS,
+/// - `pthread_mutex_adaptive_t`, on Linux and FreeBSD, like `pthread_mutex_t`, initialized as
+/// PTHREAD_MUTEX_ADAPTIVE_NP.
 /// - [`OSSpinLock`] on macOS,
 /// - [`SRWLock`] on Windows,
 /// - [`CRITICAL_SECTION`] on Windows.
@@ -83,12 +89,14 @@ pub trait UnsafeRawOsMutex {
 /// For types that can be statically initialized, until `const fn` is
 /// stabilized, initializer macros are provided:
 /// - [`pthread_mutex_new`]
+/// - [`pthread_mutex_adaptive_new`]
 /// - [`osspinlock_new`]
 /// - [`srwlock_new`]
 ///
 /// For non-static initialization, `Default::default()` can be used for these.
 ///
 /// [`pthread_mutex_new`]: ../x86_64-unknown-linux-gnu/flexible_locks/macro.pthread_mutex_new.html
+/// [`pthread_mutex_adaptive_new`]: ../x86_64-unknown-linux-gnu/flexible_locks/macro.pthread_mutex_adaptive_new.html
 /// [`osspinlock_new`]: ../x86_64-apple-darwin/flexible_locks/macro.osspinlock_new.html
 /// [`srwlock_new`]: ../x86_64-pc-windows-msvc/flexible_locks/macro.srwlock_new.html
 ///
@@ -309,6 +317,76 @@ impl Default for pthread_mutex_t {
     #[inline]
     fn default() -> Self {
         pthread_mutex_new!()
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[doc(hidden)]
+pub const PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP: raw::pthread_mutex_adaptive_t = raw::pthread_mutex_adaptive_t(libc::PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP);
+
+/// [`RawOsMutex`] wrapper for `libc::pthread_mutex_t`, initialized as
+/// PTHREAD_MUTEX_ADAPTIVE_NP.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[allow(non_camel_case_types)]
+pub type pthread_mutex_adaptive_t = RawOsMutex<raw::pthread_mutex_adaptive_t>;
+
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+impl UnsafeRawOsMutex for raw::pthread_mutex_adaptive_t {
+    unsafe fn init(mutex: *mut Self) {
+        let mut attr: libc::pthread_mutexattr_t = mem::uninitialized();
+        let r = libc::pthread_mutexattr_init(&mut attr);
+        debug_assert_eq!(r, 0);
+        let r = libc::pthread_mutexattr_settype(&mut attr, libc::PTHREAD_MUTEX_ADAPTIVE_NP);
+        debug_assert_eq!(r, 0);
+        let r = libc::pthread_mutex_init(&mut (*mutex).0, &attr);
+        debug_assert_eq!(r, 0);
+        let r = libc::pthread_mutexattr_destroy(&mut attr);
+        debug_assert_eq!(r, 0);
+    }
+
+    #[inline]
+    unsafe fn lock(mutex: *mut Self) {
+        UnsafeRawOsMutex::lock(&mut (*mutex).0);
+    }
+
+    #[inline]
+    unsafe fn unlock(mutex: *mut Self) {
+        UnsafeRawOsMutex::unlock(&mut (*mutex).0);
+    }
+
+    #[inline]
+    unsafe fn destroy(mutex: *mut Self) {
+        UnsafeRawOsMutex::destroy(&mut (*mutex).0);
+    }
+}
+
+/// Statically initializes a [`pthread_mutex_adaptive_t`]
+///
+/// # Examples
+///
+/// ```
+/// #[macro_use]
+/// extern crate flexible_locks;
+/// use flexible_locks::pthread_mutex_adaptive_t;
+/// static MUTEX: pthread_mutex_adaptive_t = pthread_mutex_adaptive_new!();
+/// # fn main() {}
+/// ```
+#[cfg(target_os = "linux")]
+#[macro_export]
+macro_rules! pthread_mutex_adaptive_new {
+    () => {
+        raw_os_mutex_new!($crate::PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP)
+    };
+    ($e:expr) => {
+        raw_os_mutex_new!($e)
+    };
+}
+
+#[cfg(target_os = "linux")]
+impl Default for pthread_mutex_adaptive_t {
+    #[inline]
+    fn default() -> Self {
+        pthread_mutex_adaptive_new!()
     }
 }
 
