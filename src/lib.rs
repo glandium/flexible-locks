@@ -235,6 +235,7 @@ pub trait MutexProtected {
 // and to turn MutexWrap into a type alias.
 #[doc(hidden)]
 #[derive(MutexProtected)]
+#[repr(C)]
 pub struct MutexWrapper<M: RawMutex, T: ?Sized>(#[mutex] pub M, pub T);
 
 impl<M: RawMutex + Default, T> From<T> for MutexWrapper<M, T> {
@@ -696,6 +697,7 @@ impl<T: MutexProtected + ?Sized> Drop for Mutex<T> {
 ///     rx.recv().unwrap();
 /// }
 /// ```
+#[repr(transparent)]
 pub struct MutexWrap<M: RawMutex, T: ?Sized> {
     #[doc(hidden)]
     pub __inner: Mutex<MutexWrapper<M, T>>,
