@@ -7,6 +7,7 @@
 // except according to those terms.
 
 use core::cell::UnsafeCell;
+use core::fmt;
 use core::mem;
 
 #[cfg(windows)]
@@ -172,6 +173,13 @@ macro_rules! raw_os_mutex_new {
 pub type SRWLOCK = RawOsMutex<raw::SRWLOCK>;
 
 #[cfg(windows)]
+impl fmt::Debug for SRWLOCK {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("SRWLOCK")
+    }
+}
+
+#[cfg(windows)]
 impl UnsafeRawOsMutex for raw::SRWLOCK {
     #[inline]
     unsafe fn lock(mutex: *mut Self) {
@@ -221,6 +229,13 @@ impl Default for SRWLOCK {
 pub type CRITICAL_SECTION = RawOsMutex<raw::CRITICAL_SECTION>;
 
 #[cfg(windows)]
+impl fmt::Debug for CRITICAL_SECTION {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("CRITICAL_SECTION")
+    }
+}
+
+#[cfg(windows)]
 impl UnsafeRawOsMutex for raw::CRITICAL_SECTION {
     #[inline]
     unsafe fn init(mutex: *mut Self) {
@@ -259,6 +274,13 @@ pub use libc::PTHREAD_MUTEX_INITIALIZER;
 #[cfg(unix)]
 #[allow(non_camel_case_types)]
 pub type pthread_mutex_t = RawOsMutex<raw::pthread_mutex_t>;
+
+#[cfg(unix)]
+impl fmt::Debug for pthread_mutex_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("pthread_mutex_t")
+    }
+}
 
 #[cfg(unix)]
 impl UnsafeRawOsMutex for raw::pthread_mutex_t {
@@ -329,6 +351,13 @@ pub const PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP: raw::pthread_mutex_adaptive_t =
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[allow(non_camel_case_types)]
 pub type pthread_mutex_adaptive_t = RawOsMutex<raw::pthread_mutex_adaptive_t>;
+
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+impl fmt::Debug for pthread_mutex_adaptive_t {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("pthread_mutex_adaptive_t")
+    }
+}
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 impl UnsafeRawOsMutex for raw::pthread_mutex_adaptive_t {
@@ -404,6 +433,13 @@ extern "C" {
 /// [`RawOsMutex`] wrapper for `OSSpinLock`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub type OSSpinLock = RawOsMutex<raw::OSSpinLock>;
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl fmt::Debug for OSSpinLock {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("OSSpinLock")
+    }
+}
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 impl UnsafeRawOsMutex for raw::OSSpinLock {
