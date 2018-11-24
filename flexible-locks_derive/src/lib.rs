@@ -15,7 +15,7 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use quote::{ToTokens, Tokens};
+use quote::ToTokens;
 use std::ops::Deref;
 use syn::{Data, DeriveInput, Field, Fields, Index, Meta};
 
@@ -43,15 +43,15 @@ impl<'a> Deref for StructField<'a> {
     }
 }
 
-impl<'a> ToTokens for StructField<'a> {
-    fn to_tokens(&self, tokens: &mut Tokens) {
-        tokens.append_all(match self {
-            &StructField::Numbered(ref n, _) => quote! { #n },
-            &StructField::Named(&Field {
-                ident: Some(ref i), ..
-            }) => quote! { #i },
-            _ => unreachable!(),
-        })
+impl<'a> StructField<'a> {
+    fn quote_with_self(&self) -> impl ToTokens {
+    match self {
+        &StructField::Numbered(ref n, _) => quote! { self.#n },
+        &StructField::Named(&Field {
+            ident: Some(ref i), ..
+        }) => quote! { self.#i },
+        _ => unreachable!(),
+    }
     }
 }
 
@@ -80,7 +80,7 @@ pub fn derive_zero(input: TokenStream) -> TokenStream {
         .map(StructField::from)
         .partition(|f| {
             f.attrs.iter().any(|a| match a.interpret_meta() {
-                Some(Meta::Word(id)) if id == "mutex" => true,
+                Some(Meta::Word(ref id)) if id == "mutex" => true,
                 Some(ref meta) if meta.name() == "mutex" => panic!("Expected #[mutex]"),
                 _ => false,
             })
@@ -92,6 +92,7 @@ pub fn derive_zero(input: TokenStream) -> TokenStream {
         _ => panic!("Can only have one #[mutex]"),
     };
     let mutex_ty = &mutex.ty;
+    let mutex = mutex.quote_with_self();
 
     let (data_ty, data, data_mut, into_data) = match others.len() {
         0 => panic!("{} contains nothing else than a #[mutex] field", name),
@@ -99,9 +100,10 @@ pub fn derive_zero(input: TokenStream) -> TokenStream {
             let other = &others[0];
             let other_ty = &other.ty;
             let data_ty = quote! { #other_ty };
-            let data = quote! { &self.#other };
-            let data_mut = quote! { &mut self.#other };
-            let into_data = quote! { self.#other };
+            let qualified = other.quote_with_self();
+            let data = quote! { &#qualified };
+            let data_mut = quote! { &mut #qualified };
+            let into_data = quote! { #qualified };
             (data_ty, data, data_mut, into_data)
         }
         _ => {
@@ -118,10 +120,10 @@ pub fn derive_zero(input: TokenStream) -> TokenStream {
             type MutexType = #mutex_ty;
             type DataType = #data_ty;
             fn get_mutex(&self) -> &Self::MutexType {
-                &self.#mutex
+                &#mutex
             }
             fn get_mutex_mut(&mut self) -> &mut Self::MutexType {
-                &mut self.#mutex
+                &mut #mutex
             }
             fn get_data(&self) -> &Self::DataType {
                 #data
